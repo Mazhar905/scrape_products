@@ -151,7 +151,7 @@ def main(product_url):
         'accessori-travestimento': 124,
         'bambole-dolls': 100,
         'biciclette': 5,
-        'costumi': 341,
+        'costumi': 335,
         'dinosauri': 18,
         'elettronica-per-bambini': 17,
         'giochi-creativi': 19,
@@ -167,16 +167,51 @@ def main(product_url):
         "playset-da-gioco": 24,
         "prima-infanzia": 52,
         "puzzle": 11,
-        "veicoli-giocattolo": 216,
+        "veicoli-giocattolo": 213,
         "zaini-trolley": 78,
-        "prodotti-outlet": 10
+        "prodotti-outlet": 10,
+        "zaino": 59,
+        "trolley": 19,
+        "case-delle-bambole": 4,
+        "fashion-dolls" : 62,
+        "costumi-baby" : 17,
+        "costumi-bambino" : 106,
+        "costumi-bambina": 160,
+        "costumi-uomo" : 22,
+        "costumi-donna" : 31,
+        "casette-per-bambini" : 7,
+        "scivoli"  : 4,
+        "mobili-da-giardino": 8,
+        "piscine" : 17,
+        "palloni-" : 25,
+        "biciclette" : 5,
+        "trottole-beyblade" : 41,
+        "giochi-di-societa" : 54,
+        "giochi-di-carte" : 30,
+        "piste-per-biglie": 21,
+        "altro-costruzioni" : 31,
+        "arte-disegno" : 11,
+        "chiodini-per-bambini" : 55,
+        "lettura-e-scrittura" : 14,
+        "scienza-e-natura": 10,
+        "auto-radiocomandate" : 39,
+        "piste-macchinine" : 10,
+        "bambolotti": 6,
+        "new-products" : 1562,
+        "prodotti-outlet" : 10, 
+        "special-offer" : 1001,
+        "featured-products" : 0,
+        "top10" : 2,
+        "top-sold" : 8,
+        "giocattoli-da-costruzioni" :55
     }
     for i in cat_link:
+        print(i)
         category = i.split('/')[-2]
-        print(category)
-        if i == 1:
-            break
-        if table_exists(category) and dict[category] == total_rows(category):
+        print(f"{category}, {i}")
+        if table_exists(category.replace('-', '_')) and dict[category] == total_rows(category.replace('-', '_')):
+            t_rows = total_rows(category.replace('-', '_'))
+            print(f'dict total: {dict[category]},  total rows msyql: {t_rows}')
             print("The Table is Already Exist and all the product urls are present")
             continue
         page_links = extrct_page_url(driver, i)
@@ -187,7 +222,7 @@ def main(product_url):
             links = (product_links(driver, i))
             for i in links:
                 product_urls.append(i)
-        print(product_urls)
+        print(f"Total URLs: {len(product_urls)}, All URLs: {product_urls}")
         data_dump(category, product_urls)
         print(product_urls)
         print(len(product_urls))
@@ -236,7 +271,7 @@ def table_exists(table_name):
         sql = f"SHOW TABLES"
         db.execute(sql)
         result = db.fetchall()
-        print(result)
+        result = [i[0] for i in result]
         logging.info("Data inserted successfully.")
         # logging.info(db.rowcount, "record inserted.")
     except mysql.connector.Error as err:
@@ -247,10 +282,10 @@ def table_exists(table_name):
             db.close()
             mydb.close()
             logging.info("Connection closed.")
-    
+    print(table_name)
     if table_name in result:
-            print("The Table is already exists")
-            return True
+        print("The Table is already exists")
+        return True
     else:
         return False
 
@@ -265,7 +300,8 @@ def category_link(driver, url):
             f"{url}, {e}")
     soup = BeautifulSoup(page, 'html.parser')
     category_links = [site_url+a['href']
-                      for a in soup.select('.list-unstyled.menu3dd-left .text-truncate')]
+                      for a in soup.select('.list-unstyled.menu3dd-left .text-truncate') if a['href'] != "javascript:void(0)"]
+    print(category_links)
     print(f"Total links {len(category_links)} on this Site")
     return category_links
 

@@ -116,6 +116,7 @@ def scrape_data(driver, url):
         logging.error(
             f"{url}, {e}")
     product_details, url_list = product_data(page, url)
+    # return product_detail
     dump = data_dump(product_details)
     print("Total records: ", dump)
     # if dump >= 150:
@@ -176,10 +177,10 @@ def product_data(page, product_url):
     href_list = [url+a.get('href') for a in a_tags]
     pri_image = soup.select('div.product-item-img img')
     primary_image_url = pri_image[0].get('src') if pri_image else None
-    primary_image_alt_text = pri_image[0].get('alt') if pri_image else None
+    primary_image_alt_text = pri_image[0].get('alt').strip() if pri_image else None
     imag_tags = soup.select('div.product-item-gallery.zoogallery img')
     image_url = [primary_image_url]+[img.get('src') for img in imag_tags]
-    img_alt_text = [primary_image_alt_text] + \
+    img_alt_text = [primary_image_alt_text.replace('\n', ' ') if '\n' in primary_image_alt_text else primary_image_alt_text] + \
         [img.get('alt') for img in imag_tags]
     image_src = [primary_image_url.replace(
         p_image, new_domain)]+[img.get('src').replace(p_image, new_domain) for img in imag_tags]
@@ -240,8 +241,10 @@ def product_data(page, product_url):
     return product_detail, href_list
 
 
-def main(product_url):
-    if not product_exists(product_url):
+def get_start(product_url):
+    # delete_row(product_url)
+    # if not product_exists(product_url):
+    if product_url:
         start_time = time.time()
         # logging.info("INFO ---------- Starting Time:",time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(start_time)))
         # create_table(db)
@@ -256,13 +259,9 @@ def main(product_url):
         options.add_experimental_option("excludeSwitches", ["enable-automation"])
         options.add_experimental_option('useAutomationExtension', False)
         options.add_argument('--disable-blink-features=AutomationControlled')
-        # ua = UserAgent()
-        # userAgent = ua.random
         driver = webdriver.Chrome(options=options)
         driver.execute_script(
             "Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
-        # driver.execute_cdp_cmd('Network.setUserAgentOverride', {
-        #    "userAgent": userAgent})
         scrape_data(driver, product_url)
         driver.quit()
     else:
@@ -281,8 +280,7 @@ def product_links(table_name):
         db = mydb.cursor()
         if mydb.is_connected():
             logging.info("Connected to the database")
-        db = mydb.cursor()
-        sql = f"SELECT product_url FROM {table_name} WHERE scrape = 'F'"
+        sql = f"SELECT url FROM {table_name}"
         db.execute(sql)
         result = db.fetchall()
         logging.info("Data inserted successfully.")
@@ -373,13 +371,36 @@ def scraped_product(table_name, url):
             logging.info("Connection closed.")
     return 
 
-if __name__ == "__main__":
-    categories = get_categories()
-    for i in categories:
-        product_urls = product_links(i)
-        for j in product_urls:
-            print(j)
-            n = add_trailing_slash(j)
-            main(n)
-            scraped_product(i, j)
+def delete_row(url):
+    table_name = 'product'
+    try:
+        mydb = mysql.connector.connect(
+            host="localhost", user=user, password=password, database=database)
+        db = mydb.cursor()
+        if mydb.is_connected():
+            logging.info("Connected to the database")
+        sql = f" DELETE FROM {table_name} WHERE url = '{url}'"
+        db.execute(sql)
+        mydb.commit()
+        logging.info(f"Row Deleted wher url = {url} successfullly.")
+        # logging.info(db.rowcount, "record inserted.")
+    except mysql.connector.Error as err:
+        logging.error("Error: {}".format(err))
+    finally:
+        # Close the database connection when done
+        if mydb.is_connected():
+            db.close()
+            mydb.close()
+            logging.info("Connection closed.")
 
+if __name__ == "__main__":
+    # categories = get_categories()
+    # for i in categories:
+    product_urls = product_links('your_table')
+    for j in product_urls:
+        print(j)
+        n = add_trailing_slash(j)
+        get_start(n)
+            # scraped_product(i, j)
+    i = 'https://www.outletdelgiocattolo.it/products/rubies-witch-1787'
+    get_start(i)
