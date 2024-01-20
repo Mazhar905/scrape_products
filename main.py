@@ -18,6 +18,9 @@ def insert_product_data(data):
     print(len(data['Image Src']))
     # Removed 'EAN'
     for i in range(len(data['Image Src'])):
+        option1_value = data['Option1 Value'][i] if len(data['Option1 Value']) >= i else None
+        option2_value = data['Option2 Value'][i] if len(data['Option2 Value']) >= i else None
+        option3_value = data['Option3 Value'][i] if len(data['Option3 Value']) >= i else None
         if first_iteration:
             print("First Image")
             sql_query = """
@@ -34,11 +37,10 @@ def insert_product_data(data):
             val = (
                 data['Handle'], data['Title'], data['Body'], data['Vendor'], data['Product Category'],
                 data['Type'], data['Tags'], data['Published'], data['Option1 Name'],
-                data['Option1 Value'], data['Option2 Name'], data['Option2 Value'],
-                data['Option3 Name'], data['Option3 Value'], data['SKU'],
+                option1_value, data['Option2 Name'], option2_value,
+                data['Option3 Name'], option3_value, data['SKU'],
                 data['Variant Grams'], data['Variant Inventory Qty'], data['Price'],
-                data['Sale Price'], data['Variant Barcode'], data['Image Src'][i],
-                i+1,
+                data['Sale Price'], data['Variant Barcode'], data['Image Src'][i], i+1,
                 data['Image Alt Text'][i], data['Variant Weight Unit'],
                 data['Status'], data['URL'], data['Image URL'][i], data['Collection'], data['Image Downloaded'], data['Features']
             )
@@ -47,12 +49,13 @@ def insert_product_data(data):
             print("Others Image")
             sql_query = """
             INSERT INTO product (
-                Handle,Image_Src, Image_Position,Image_Alt_Text, Image_URL, Image_Downloaded
-            ) VALUES (%s, %s, %s, %s, %s, %s)    
+                Handle,Image_Src, Image_Position, Image_Alt_Text, Image_URL, Image_Downloaded,
+                Option1_Value, Option2_Value, Option3_Value, Variant_SKU
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)    
                 """
             val = (
                 data['Handle'], data['Image Src'][i], i +
-                1, data['Image Alt Text'][i], data['Image URL'][i], data['Image Downloaded']
+                1, data['Image Alt Text'][i], data['Image URL'][i], data['Image Downloaded'], option1_value, option2_value, option3_value
             )
         try:
             mydb = mysql.connector.connect(
@@ -116,27 +119,8 @@ def scrape_data(driver, url):
         logging.error(
             f"{url}, {e}")
     product_details, url_list = product_data(page, url)
-    # return product_detail
     dump = data_dump(product_details)
     print("Total records: ", dump)
-    # if dump >= 150:
-    #     print("Record count is greater than or equal to 200.")
-    #     return
-    # if url_list:
-    #     for i in url_list:
-    #         print(product_exists(i))
-    #         if product_exists(i):  # Checking the Duplication
-    #             next_url = None
-    #             logging.info(
-    #                 f"The Product '{i}' already exists in the database.")
-    #             logging.info(f"We have the data of this product {i}")
-    #             continue
-    #         else:
-    #             next_url = i
-    #             logging.info(f'Continue with this {i}')
-    #             break
-    # if next_url:
-    #     scrape_data(driver, next_url)
 
 
 def product_data(page, product_url):
@@ -156,16 +140,19 @@ def product_data(page, product_url):
     # Find the table rows (tr) inside the specified div
     table_rows = soup.select('#p-acc-details-d2 .card-body table tbody tr')
     # Create a dictionary from the table rows
-    charc_dict = {row.find('td').text: row.find('td').find_next('td').text for row in table_rows}
+    charc_dict = {row.find('td').text: row.find(
+        'td').find_next('td').text for row in table_rows}
     try:
-        feaures_table = soup.select('#p-add-to-cart-form table tbody.product-item-features-tbody tr')
-        features_dict = {row.find('td').text: row.find('td').find_next('td').text for row in feaures_table}
+        feaures_table = soup.select(
+            '#p-add-to-cart-form table tbody.product-item-features-tbody tr')
+        features_dict = {row.find('td').text: row.find(
+            'td').find_next('td').text for row in feaures_table}
         if len(features_dict):
             features = 'T'
-        else: 
+        else:
             features = 'F'
     except Exception as e:
-        features = 'F'        
+        features = 'F'
         logging.error(e)
 
     product_code = soup.find('span', id='p-attr-code').text
@@ -177,7 +164,8 @@ def product_data(page, product_url):
     href_list = [url+a.get('href') for a in a_tags]
     pri_image = soup.select('div.product-item-img img')
     primary_image_url = pri_image[0].get('src') if pri_image else None
-    primary_image_alt_text = pri_image[0].get('alt').strip() if pri_image else None
+    primary_image_alt_text = pri_image[0].get(
+        'alt').strip() if pri_image else None
     imag_tags = soup.select('div.product-item-gallery.zoogallery img')
     image_url = [primary_image_url]+[img.get('src') for img in imag_tags]
     img_alt_text = [primary_image_alt_text.replace('\n', ' ') if '\n' in primary_image_alt_text else primary_image_alt_text] + \
@@ -188,11 +176,11 @@ def product_data(page, product_url):
     tags = ''
     published = True
     option1_name = 'Title'
-    option1_value = 'Default Title'
+    option1_value = []
     option2_name = ''
-    option2_value = ''
+    option2_value = []
     option3_name = ''
-    option3_value = ''
+    option3_value = []
     variant_grams = 1
     variant_barcode = ''
     variant_inventery_qty = 10
@@ -256,7 +244,8 @@ def get_start(product_url):
         options.add_argument("--window-size=1280,1280")
         options.add_argument("--no-sandbox")
         options.add_argument("--enable-javascript")
-        options.add_experimental_option("excludeSwitches", ["enable-automation"])
+        options.add_experimental_option(
+            "excludeSwitches", ["enable-automation"])
         options.add_experimental_option('useAutomationExtension', False)
         options.add_argument('--disable-blink-features=AutomationControlled')
         driver = webdriver.Chrome(options=options)
@@ -272,6 +261,7 @@ def get_start(product_url):
     # duration = end_time - start_time
     # logging.info("Execution Time (in seconds):", duration)
     # logging.info("Execution Time (in minutes):", duration / 60)
+
 
 def product_links(table_name):
     try:
@@ -347,6 +337,7 @@ def add_trailing_slash(url):
         url += '/'
     return url
 
+
 def scraped_product(table_name, url):
     try:
         mydb = mysql.connector.connect(
@@ -369,7 +360,8 @@ def scraped_product(table_name, url):
             db.close()
             mydb.close()
             logging.info("Connection closed.")
-    return 
+    return
+
 
 def delete_row(url):
     table_name = 'product'
@@ -393,6 +385,7 @@ def delete_row(url):
             mydb.close()
             logging.info("Connection closed.")
 
+
 if __name__ == "__main__":
     # categories = get_categories()
     # for i in categories:
@@ -401,6 +394,6 @@ if __name__ == "__main__":
         print(j)
         n = add_trailing_slash(j)
         get_start(n)
-            # scraped_product(i, j)
+        # scraped_product(i, j)
     i = 'https://www.outletdelgiocattolo.it/products/rubies-witch-1787'
     get_start(i)
